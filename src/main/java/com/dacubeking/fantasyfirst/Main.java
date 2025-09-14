@@ -40,6 +40,8 @@ public class Main {
     public static final ButtonElement createEventButton = new ButtonElement();
     public static final String DATA_DIR = "./data";
 
+    public static final String SAVE_FILE_PATH = DATA_DIR + "/games.ser";
+
     public static final String ADMIN_USER_ID = "U05L2LK6GCX";
 
     static {
@@ -60,7 +62,8 @@ public class Main {
 
 
     public static void main(String[] args) throws Exception {
-        try (FileInputStream fis = new FileInputStream("games.ser")) {
+        new File(DATA_DIR).mkdirs();
+        try (FileInputStream fis = new FileInputStream(SAVE_FILE_PATH)) {
             ObjectInputStream ois = new ObjectInputStream(fis);
             Object object = ois.readObject();
             var gamesRead = (ConcurrentMap<String, ConcurrentMap<UUID, Game>>) object;
@@ -626,7 +629,7 @@ public class Main {
     }
 
     public static void save() {
-        try (FileOutputStream fos = new FileOutputStream("games.ser");) {
+        try (FileOutputStream fos = new FileOutputStream(SAVE_FILE_PATH);) {
             ObjectOutputStream oos = new ObjectOutputStream(fos);
             oos.writeObject(games);
             oos.close();

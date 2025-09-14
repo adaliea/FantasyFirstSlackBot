@@ -1,7 +1,9 @@
 services:
   app:
     build: .
-    env_file:
-      - .env
     ports:
       - "3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
