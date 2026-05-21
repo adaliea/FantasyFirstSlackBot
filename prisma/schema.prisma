@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Workspace {
+  id        String   @id
+  createdAt DateTime @default(now()) @map("created_at")
+  games     Game[]
+
+  @@map("workspaces")
+}
+
+model Game {
+  uuid                 String   @id
+  workspaceId          String   @map("workspace_id")
+  channelId            String   @map("channel_id")
+  allianceSize         Int      @map("alliance_size")
+  availableTeams       Json     @default("[]") @map("available_teams")
+  players              Json     @default("[]")
+  gameOwnerSlackId     String   @map("game_owner_slack_id")
+  gameName             String   @map("game_name")
+  hasStarted           Boolean  @default(false) @map("has_started")
+  turnCount            Int      @default(0) @map("turn_count")
+  lastMessagesTsArray  Json     @default("[]") @map("last_messages_ts_array")
+  targetPlayersPerGame Int      @default(0) @map("target_players_per_game")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId])
+  @@map("games")
+}
