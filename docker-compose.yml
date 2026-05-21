@@ -5,5 +5,29 @@ services:
       - "3000:3000"
     env_file:
       - .env
+    environment:
+      DATABASE_URL: postgresql://fantasyfirst:${POSTGRES_PASSWORD:-fantasyfirst}@db:5432/fantasyfirst
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: fantasyfirst
+      POSTGRES_USER: fantasyfirst
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fantasyfirst}
+    ports:
+      - "5432:5432"
     volumes:
-      - ./data:/app/data
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fantasyfirst -d fantasyfirst"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
