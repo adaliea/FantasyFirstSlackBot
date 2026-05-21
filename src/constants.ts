@@ -1,5 +1,6 @@
 export const ADMIN_USER_ID = process.env.ADMIN_USER_ID ?? '';
 export const PORT = parseInt(process.env.PORT ?? '3000', 10);
+export const PUBLIC_URL = process.env.PUBLIC_URL ?? '';
 
 export const CREATE_EVENT_CALLBACK_ID = 'createEventButton';
 export const PICK_TEAM_CALLBACK_ID = 'team_pick_number';

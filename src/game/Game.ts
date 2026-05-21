@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { KnownBlock } from '@slack/bolt';
 import { GameData, Player, Team } from '../types';
-import { ACTION_JOIN_GAME, ACTION_LEAVE_GAME, ACTION_PICK_TEAM_BUTTON, ACTION_START_GAME } from '../constants';
+import { ACTION_JOIN_GAME, ACTION_LEAVE_GAME, ACTION_PICK_TEAM_BUTTON, ACTION_START_GAME, PUBLIC_URL } from '../constants';
 
 export class Game {
   private readonly data: GameData;
@@ -17,6 +17,7 @@ export class Game {
     gameOwnerSlackId: string;
     gameName: string;
     targetPlayersPerGame?: number;
+    eventCode?: string;
   }): Game {
     const availableTeams = [...params.teams].sort(
       (a, b) => parseInt(a.number) - parseInt(b.number),
@@ -33,6 +34,7 @@ export class Game {
       turnCount: 0,
       lastMessagesTsArray: [],
       targetPlayersPerGame: params.targetPlayersPerGame ?? 0,
+      eventCode: params.eventCode,
     });
   }
 
@@ -55,11 +57,18 @@ export class Game {
   get availableTeams(): Team[] { return this.data.availableTeams; }
   get lastMessagesTsArray(): string[] { return this.data.lastMessagesTsArray; }
   get targetPlayersPerGame(): number { return this.data.targetPlayersPerGame; }
+  get eventCode(): string | undefined { return this.data.eventCode; }
 
   set gameName(name: string) { this.data.gameName = name; }
   set allianceSize(size: number) { this.data.allianceSize = size; }
   set targetPlayersPerGame(n: number) { this.data.targetPlayersPerGame = n; }
   set lastMessagesTsArray(ts: string[]) { this.data.lastMessagesTsArray = ts; }
+  set eventCode(code: string | undefined) { this.data.eventCode = code; }
+
+  getScoringUrl(publicUrl: string): string | null {
+    if (!publicUrl) return null;
+    return `${publicUrl}/game/${this.data.uuid}`;
+  }
 
   addPlayer(player: Player): void {
     this.data.players.push(player);
@@ -229,6 +238,10 @@ export class Game {
         type: 'context',
         elements: [{ type: 'mrkdwn', text: `This game will be split into drafts with a target of *${teamsPerDraft}* players per draft` }],
       },
+      ...(this.getScoringUrl(PUBLIC_URL) ? [{
+        type: 'context' as const,
+        elements: [{ type: 'mrkdwn' as const, text: `📊 <${this.getScoringUrl(PUBLIC_URL)}|Live Scoring>` }],
+      }] : []),
     ] as KnownBlock[];
   }
 
@@ -246,6 +259,10 @@ export class Game {
       return [[
         { type: 'section', text: { type: 'mrkdwn', text: `The *${this.data.gameName}* draft is over!` } },
         { type: 'section', fields },
+        ...(this.getScoringUrl(PUBLIC_URL) ? [{
+          type: 'context' as const,
+          elements: [{ type: 'mrkdwn' as const, text: `📊 <${this.getScoringUrl(PUBLIC_URL)}|Live Scoring>` }],
+        }] : []),
       ] as KnownBlock[]];
     }
 
@@ -264,6 +281,10 @@ export class Game {
       },
       { type: 'section', text: { type: 'mrkdwn', text: 'You can still join the draft!' } },
       this.getJoiningButtonsBlock(),
+      ...(this.getScoringUrl(PUBLIC_URL) ? [{
+        type: 'context' as const,
+        elements: [{ type: 'mrkdwn' as const, text: `📊 <${this.getScoringUrl(PUBLIC_URL)}|Live Scoring>` }],
+      }] : []),
     ] as KnownBlock[]];
   }
 

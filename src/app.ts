@@ -1,4 +1,5 @@
-import { App, LogLevel } from '@slack/bolt';
+import { App, ExpressReceiver, LogLevel } from '@slack/bolt';
+import express from 'express';
 import { registerAppHomeHandler } from './slack/handlers/appHome';
 import { registerCreateEventHandlers } from './slack/handlers/createEvent';
 import { registerJoinLeaveHandlers } from './slack/handlers/joinLeave';
@@ -8,18 +9,26 @@ import { registerAdminHandler } from './slack/handlers/admin';
 import { initializeState } from './state';
 import { loadAllGames, prisma } from './utils/persistence';
 import { PORT } from './constants';
+import { createWebRouter } from './web/router';
 
 const isSingleWorkspace = Boolean(process.env.SLACK_BOT_TOKEN);
+const signingSecret = process.env.SLACK_SIGNING_SECRET!;
+
+const receiver = new ExpressReceiver({ signingSecret });
+
+// Mount custom routes before Slack handlers
+receiver.app.use(express.json());
+receiver.app.use(createWebRouter());
 
 const app = new App(
   isSingleWorkspace
     ? {
         token: process.env.SLACK_BOT_TOKEN,
-        signingSecret: process.env.SLACK_SIGNING_SECRET!,
+        receiver,
         logLevel: LogLevel.INFO,
       }
     : {
-        signingSecret: process.env.SLACK_SIGNING_SECRET!,
+        receiver,
         clientId: process.env.SLACK_CLIENT_ID!,
         clientSecret: process.env.SLACK_CLIENT_SECRET!,
         stateSecret: process.env.SLACK_STATE_SECRET!,

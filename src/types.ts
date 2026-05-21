@@ -32,4 +32,5 @@ export interface GameData {
   turnCount: number;
   lastMessagesTsArray: string[];
   targetPlayersPerGame: number;
+  eventCode?: string;
 }
