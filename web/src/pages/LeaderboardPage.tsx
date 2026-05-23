@@ -5,6 +5,8 @@ import type { LeaderboardPlayer, LeaderboardResponse } from '../types';
 
 const POLL_INTERVAL = 30_000;
 
+type SortMode = 'total' | 'average';
+
 function formatAge(ms: number): string {
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s}s ago`;
@@ -14,6 +16,8 @@ function formatAge(ms: number): string {
 export function LeaderboardPage(): JSX.Element {
   const workspaceId = getWorkspaceIdFromPath();
   const [finalizedOnly, setFinalizedOnly] = React.useState(false);
+  const [sortMode, setSortMode] = React.useState<SortMode>('total');
+  const [minGames, setMinGames] = React.useState(1);
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set());
   const [lastUpdated, setLastUpdated] = React.useState<number | null>(null);
 
@@ -45,18 +49,55 @@ export function LeaderboardPage(): JSX.Element {
 
   const age = lastUpdated ? Date.now() - lastUpdated : null;
   const totalScored = data.players.reduce((sum, p) => sum + p.gamesPlayed, 0);
+  const maxGamesPlayed = data.players.reduce((m, p) => Math.max(m, p.gamesPlayed), 0);
+
+  const visiblePlayers = [...data.players]
+    .filter((p) => p.gamesPlayed >= minGames)
+    .sort((a, b) => {
+      const av = sortMode === 'average' ? a.totalPoints / Math.max(a.gamesPlayed, 1) : a.totalPoints;
+      const bv = sortMode === 'average' ? b.totalPoints / Math.max(b.gamesPlayed, 1) : b.totalPoints;
+      return bv - av || a.name.localeCompare(b.name);
+    });
 
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-bold text-gray-800 text-base leading-tight">All-Time Leaderboard</h1>
             <div className="text-xs text-gray-400 truncate">
               Workspace {workspaceId} · {data.players.length} players · {totalScored} game-entries
+              {minGames > 1 && (
+                <span> · showing {visiblePlayers.length} with ≥{minGames} games</span>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-3 shrink-0 flex-wrap">
+            <label className="text-xs text-gray-500 flex items-center gap-1.5 select-none">
+              Sort by
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                className="rounded border border-gray-300 bg-white text-gray-700 px-1.5 py-0.5 text-xs"
+              >
+                <option value="total">Total points</option>
+                <option value="average">Average / game</option>
+              </select>
+            </label>
+            <label className="text-xs text-gray-500 flex items-center gap-1.5 select-none">
+              Min games
+              <input
+                type="number"
+                min={1}
+                max={Math.max(maxGamesPlayed, 1)}
+                value={minGames}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setMinGames(Number.isFinite(n) && n >= 1 ? n : 1);
+                }}
+                className="w-14 rounded border border-gray-300 bg-white text-gray-700 px-1.5 py-0.5 text-xs tabular-nums"
+              />
+            </label>
             <label className="text-xs text-gray-500 flex items-center gap-1.5 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -87,9 +128,12 @@ export function LeaderboardPage(): JSX.Element {
 
         {data.players.length === 0 ? (
           <EmptyState />
+        ) : visiblePlayers.length === 0 ? (
+          <FilteredOutState minGames={minGames} maxGamesPlayed={maxGamesPlayed} />
         ) : (
           <LeaderboardTable
-            players={data.players}
+            players={visiblePlayers}
+            sortMode={sortMode}
             expanded={expanded}
             onToggle={(slackId) => {
               setExpanded((prev) => {
@@ -108,9 +152,13 @@ export function LeaderboardPage(): JSX.Element {
 
 function LeaderboardTable(props: {
   players: LeaderboardPlayer[];
+  sortMode: SortMode;
   expanded: Set<string>;
   onToggle: (slackId: string) => void;
 }): JSX.Element {
+  const totalActive = props.sortMode === 'total';
+  const headerCls = (active: boolean): string =>
+    `text-right px-3 py-2 w-24 tabular-nums ${active ? 'text-gray-700 font-semibold' : ''}`;
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
       <table className="w-full text-sm">
@@ -118,7 +166,8 @@ function LeaderboardTable(props: {
           <tr>
             <th className="text-right px-3 py-2 w-12">#</th>
             <th className="text-left px-3 py-2">Player</th>
-            <th className="text-right px-3 py-2 w-24 tabular-nums">Points</th>
+            <th className={headerCls(totalActive)}>Points</th>
+            <th className={headerCls(!totalActive)}>Avg</th>
             <th className="text-right px-3 py-2 w-20 tabular-nums">Games</th>
             <th className="w-8" />
           </tr>
@@ -126,6 +175,7 @@ function LeaderboardTable(props: {
         <tbody>
           {props.players.map((player, idx) => {
             const open = props.expanded.has(player.slackId);
+            const avg = player.totalPoints / Math.max(player.gamesPlayed, 1);
             return (
               <React.Fragment key={player.slackId}>
                 <tr
@@ -134,8 +184,15 @@ function LeaderboardTable(props: {
                 >
                   <td className="text-right px-3 py-2 text-gray-400 tabular-nums">{idx + 1}</td>
                   <td className="px-3 py-2 font-medium text-gray-800">{player.name}</td>
-                  <td className="text-right px-3 py-2 tabular-nums font-semibold text-gray-800">
+                  <td
+                    className={`text-right px-3 py-2 tabular-nums ${totalActive ? 'font-semibold text-gray-800' : 'text-gray-500'}`}
+                  >
                     {player.totalPoints.toFixed(0)}
+                  </td>
+                  <td
+                    className={`text-right px-3 py-2 tabular-nums ${totalActive ? 'text-gray-500' : 'font-semibold text-gray-800'}`}
+                  >
+                    {avg.toFixed(1)}
                   </td>
                   <td className="text-right px-3 py-2 tabular-nums text-gray-500">{player.gamesPlayed}</td>
                   <td className="text-center px-2 text-gray-400">{open ? '▾' : '▸'}</td>
@@ -143,7 +200,7 @@ function LeaderboardTable(props: {
                 {open && (
                   <tr className="bg-gray-50/60">
                     <td />
-                    <td colSpan={4} className="px-3 py-2">
+                    <td colSpan={5} className="px-3 py-2">
                       <BreakdownList breakdown={player.breakdown} />
                     </td>
                   </tr>
@@ -153,6 +210,16 @@ function LeaderboardTable(props: {
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function FilteredOutState(props: { minGames: number; maxGamesPlayed: number }): JSX.Element {
+  return (
+    <div className="text-center py-16 text-gray-500">
+      <div className="text-3xl mb-2">🔎</div>
+      <p>No players have played ≥{props.minGames} games yet.</p>
+      <p className="text-xs mt-1">Most games played by anyone: {props.maxGamesPlayed}.</p>
     </div>
   );
 }
