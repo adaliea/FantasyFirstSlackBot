@@ -12,6 +12,9 @@ RUN npm run build
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Prisma's schema engine needs OpenSSL on Alpine.
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
 COPY prisma ./prisma/
 RUN npm ci
@@ -25,6 +28,9 @@ RUN npx tsc
 # ── Production image ───────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
+
+# Prisma's schema engine needs OpenSSL on Alpine.
+RUN apk add --no-cache openssl
 
 COPY package*.json ./
 COPY prisma ./prisma/
