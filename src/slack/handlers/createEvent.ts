@@ -43,9 +43,11 @@ export function registerCreateEventHandlers(app: App): void {
 
     try {
       const tbaApiKey = process.env.TBA_API_KEY ?? '';
-      const teams = teamListValue.includes(',')
-        ? parseTeamList(teamListValue)
-        : await getTeamsAtEvent(teamListValue.trim(), tbaApiKey);
+      const isTbaCode = !teamListValue.includes(',');
+      const eventCode = isTbaCode ? teamListValue.trim() : undefined;
+      const teams = isTbaCode
+        ? await getTeamsAtEvent(eventCode!, tbaApiKey)
+        : parseTeamList(teamListValue);
 
       if (teams.length === 0) {
         logger.warn('No teams found for input: %s', teamListValue);
@@ -59,6 +61,7 @@ export function registerCreateEventHandlers(app: App): void {
         gameOwnerSlackId: userId,
         gameName,
         targetPlayersPerGame: targetPlayerCount,
+        eventCode,
       });
 
       addGame(workspaceId, game);

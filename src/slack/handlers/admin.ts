@@ -8,21 +8,22 @@ import { ADMIN_USER_ID } from '../../constants';
 
 const HELP = `
 *Fantasy First Admin Commands*
-\`/debug help\`                          — Show this message
-\`/debug games\`                         — List your games in this workspace
-\`/debug all\`                           — List ALL games in workspace (admin only)
-\`/debug game <uuid> info\`              — Show full game details
-\`/debug game <uuid> players\`           — List players
-\`/debug game <uuid> teams\`             — List available teams
-\`/debug game <uuid> add @user ...\`     — Add one or more players
-\`/debug game <uuid> kick @user\`        — Remove a player
-\`/debug game <uuid> unstart\`           — Reset draft to registration
-\`/debug game <uuid> reprint\`           — Post game message to channel again
-\`/debug game <uuid> set target <n>\`   — Set target players per draft
-\`/debug game <uuid> set alliance <n>\` — Set alliance (teams per player) size
-\`/debug game <uuid> rename <name>\`     — Rename the game
-\`/debug game <uuid> split-preview\`    — Preview how players would be split
-\`/debug game <uuid> delete\`            — Permanently delete the game
+\`/debug help\`                                  — Show this message
+\`/debug games\`                                 — List your games in this workspace
+\`/debug all\`                                   — List ALL games in workspace (admin only)
+\`/debug game <uuid> info\`                      — Show full game details
+\`/debug game <uuid> players\`                   — List players
+\`/debug game <uuid> teams\`                     — List available teams
+\`/debug game <uuid> add @user ...\`             — Add one or more players
+\`/debug game <uuid> kick @user\`                — Remove a player
+\`/debug game <uuid> unstart\`                   — Reset draft to registration
+\`/debug game <uuid> reprint\`                   — Post game message to channel again
+\`/debug game <uuid> set target <n>\`            — Set target players per draft
+\`/debug game <uuid> set alliance <n>\`          — Set alliance (teams per player) size
+\`/debug game <uuid> set event-code <code>\`     — Attach TBA event code for live scoring
+\`/debug game <uuid> rename <name>\`             — Rename the game
+\`/debug game <uuid> split-preview\`             — Preview how players would be split
+\`/debug game <uuid> delete\`                    — Permanently delete the game
 `.trim();
 
 export function registerAdminHandler(app: App): void {
@@ -152,6 +153,15 @@ export function registerAdminHandler(app: App): void {
 
         if (cmd === 'set' && args.length >= 5) {
           const field = args[3].toLowerCase();
+
+          if (field === 'event-code') {
+            const code = args[4].trim();
+            game.eventCode = code;
+            await saveGame(workspaceId, game.toData());
+            await respond({ text: `Event code set to \`${code}\`. Live scoring will be available once TBA data is available.`, response_type: 'ephemeral' });
+            return;
+          }
+
           const value = parseInt(args[4], 10);
           if (isNaN(value)) { await respond({ text: 'Value must be a number.', response_type: 'ephemeral' }); return; }
           if (field === 'target') {
@@ -159,7 +169,7 @@ export function registerAdminHandler(app: App): void {
           } else if (field === 'alliance') {
             game.allianceSize = value;
           } else {
-            await respond({ text: `Unknown field "${field}". Use "target" or "alliance".`, response_type: 'ephemeral' });
+            await respond({ text: `Unknown field "${field}". Use "target", "alliance", or "event-code".`, response_type: 'ephemeral' });
             return;
           }
           await saveGame(workspaceId, game.toData());

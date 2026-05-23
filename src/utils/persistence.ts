@@ -18,6 +18,7 @@ function toGameData(row: {
   turnCount: number;
   lastMessagesTsArray: unknown;
   targetPlayersPerGame: number;
+  eventCode: string | null;
 }): GameData {
   return {
     uuid: row.uuid,
@@ -31,6 +32,7 @@ function toGameData(row: {
     turnCount: row.turnCount,
     lastMessagesTsArray: row.lastMessagesTsArray as string[],
     targetPlayersPerGame: row.targetPlayersPerGame,
+    eventCode: row.eventCode ?? undefined,
   };
 }
 
@@ -60,6 +62,7 @@ export async function saveGame(workspaceId: string, game: GameData): Promise<voi
     turnCount: game.turnCount,
     lastMessagesTsArray: toJson(game.lastMessagesTsArray),
     targetPlayersPerGame: game.targetPlayersPerGame,
+    eventCode: game.eventCode ?? null,
   };
 
   await prisma.$transaction([
@@ -81,6 +84,7 @@ export async function saveGame(workspaceId: string, game: GameData): Promise<voi
         targetPlayersPerGame: game.targetPlayersPerGame,
         allianceSize: game.allianceSize,
         channelId: game.channelId,
+        eventCode: game.eventCode ?? null,
       },
     }),
   ]);

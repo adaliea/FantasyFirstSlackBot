@@ -1,3 +1,14 @@
+# ── Web frontend builder ───────────────────────────────────────────────────────
+FROM node:20-alpine AS web-builder
+WORKDIR /app/web
+
+COPY web/package*.json ./
+RUN npm ci
+
+COPY web/ ./
+RUN npm run build
+
+# ── Server builder ─────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 WORKDIR /app
 
@@ -9,9 +20,9 @@ RUN npx prisma generate
 
 COPY tsconfig.json ./
 COPY src ./src/
-RUN npm run build
+RUN npx tsc
 
-# ── Production image ──────────────────────────────────────────────────────────
+# ── Production image ───────────────────────────────────────────────────────────
 FROM node:20-alpine
 WORKDIR /app
 
@@ -22,6 +33,7 @@ RUN npm ci --omit=dev
 RUN npx prisma generate
 
 COPY --from=builder /app/dist ./dist/
+COPY --from=web-builder /app/web/dist ./web/dist/
 
 EXPOSE 3000
 

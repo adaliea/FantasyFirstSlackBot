@@ -44,6 +44,7 @@ export function registerStartGameHandler(app: App): void {
           gameOwnerSlackId: game.gameOwnerSlackId,
           gameName: `${game.gameName} ${i + 1}`,
           targetPlayersPerGame: game.targetPlayersPerGame,
+          eventCode: game.eventCode,
         });
         sibling.players.push(...splitGroups[i]);
         addGame(workspaceId, sibling);

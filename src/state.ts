@@ -35,3 +35,11 @@ export function removeGame(workspaceId: string, gameId: string): void {
 export function getAllGamesMap(): Map<string, Map<string, Game>> {
   return games;
 }
+
+export function getGameByUuid(uuid: string): Game | undefined {
+  for (const wsMap of games.values()) {
+    const game = wsMap.get(uuid);
+    if (game) return game;
+  }
+  return undefined;
+}
