@@ -5,6 +5,20 @@ type JsonValue = Prisma.InputJsonValue;
 
 export const prisma = new PrismaClient();
 
+// Optional write-side hook installed by the scoring layer to bust caches when
+// a game mutates. Kept as a setter to avoid a hard dependency from
+// persistence → scoring (which would cycle via state).
+type GameWriteHook = {
+  onSaved: (gameUuid: string, eventCode: string | null) => Promise<void> | void;
+  onDeleted: (gameUuid: string) => Promise<void> | void;
+};
+
+let writeHook: GameWriteHook | null = null;
+
+export function setGameWriteHook(hook: GameWriteHook | null): void {
+  writeHook = hook;
+}
+
 function toGameData(row: {
   uuid: string;
   workspaceId: string;
@@ -88,8 +102,11 @@ export async function saveGame(workspaceId: string, game: GameData): Promise<voi
       },
     }),
   ]);
+
+  if (writeHook) await writeHook.onSaved(game.uuid, game.eventCode ?? null);
 }
 
 export async function deleteGame(gameId: string): Promise<void> {
   await prisma.game.delete({ where: { uuid: gameId } });
+  if (writeHook) await writeHook.onDeleted(gameId);
 }

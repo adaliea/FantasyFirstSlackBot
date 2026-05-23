@@ -7,18 +7,27 @@ import { registerStartGameHandler } from './slack/handlers/startGame';
 import { registerPickTeamHandlers } from './slack/handlers/pickTeam';
 import { registerAdminHandler } from './slack/handlers/admin';
 import { initializeState } from './state';
-import { loadAllGames, prisma } from './utils/persistence';
+import { loadAllGames, prisma, setGameWriteHook } from './utils/persistence';
 import { PORT } from './constants';
 import { createWebRouter } from './web/router';
+import { TbaCachedClient } from './scoring/tbaCachedClient';
+import { ScoringCache } from './scoring/scoringCache';
 
 const isSingleWorkspace = Boolean(process.env.SLACK_BOT_TOKEN);
 const signingSecret = process.env.SLACK_SIGNING_SECRET!;
 
 const receiver = new ExpressReceiver({ signingSecret });
 
+const tbaClient = new TbaCachedClient(process.env.TBA_API_KEY ?? '');
+const scoringCache = new ScoringCache(prisma, tbaClient);
+setGameWriteHook({
+  onSaved: (uuid, eventCode) => scoringCache.onGameSaved(uuid, eventCode),
+  onDeleted: (uuid) => scoringCache.onGameDeleted(uuid),
+});
+
 // Mount custom routes before Slack handlers
 receiver.app.use(express.json());
-receiver.app.use(createWebRouter());
+receiver.app.use(createWebRouter({ tbaClient, scoringCache }));
 
 const app = new App(
   isSingleWorkspace

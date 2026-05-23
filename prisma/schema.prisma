@@ -37,3 +37,14 @@ model Game {
   @@index([workspaceId])
   @@map("games")
 }
+
+model FinalGameScore {
+  gameUuid    String   @id @map("game_uuid")
+  workspaceId String   @map("workspace_id")
+  eventCode   String   @map("event_code")
+  computedAt  DateTime @default(now()) @map("computed_at")
+  scoring     Json
+
+  @@index([workspaceId])
+  @@map("final_game_scores")
+}

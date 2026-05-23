@@ -10,6 +10,9 @@ interface CacheEntry {
 export class TbaCachedClient {
   private readonly apiKey: string;
   private readonly cache = new Map<string, CacheEntry>();
+  // Coalesce concurrent cache-miss callers for the same endpoint onto a single
+  // in-flight fetch. Cleared once the fetch settles.
+  private readonly inflight = new Map<string, Promise<unknown>>();
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
@@ -37,6 +40,23 @@ export class TbaCachedClient {
 
   private async fetch<T>(endpoint: string, ttlSeconds: number): Promise<T | null> {
     const key = endpoint;
+    const entry = this.cache.get(key);
+    if (entry && Date.now() < entry.expiresAt) return entry.body as T;
+
+    const existing = this.inflight.get(key) as Promise<T | null> | undefined;
+    if (existing) return existing;
+
+    const promise = this.fetchUncached<T>(endpoint, ttlSeconds);
+    this.inflight.set(key, promise);
+    try {
+      return await promise;
+    } finally {
+      this.inflight.delete(key);
+    }
+  }
+
+  private async fetchUncached<T>(endpoint: string, ttlSeconds: number): Promise<T | null> {
+    const key = endpoint;
     const now = Date.now();
     const entry = this.cache.get(key);
 
@@ -47,7 +67,6 @@ export class TbaCachedClient {
     };
 
     if (entry) {
-      if (now < entry.expiresAt) return entry.body as T;
       if (entry.etag) headers['If-None-Match'] = entry.etag;
       if (entry.lastModified) headers['If-Modified-Since'] = entry.lastModified;
     }
